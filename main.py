@@ -3,6 +3,10 @@ import pandas as pd
 import ast
 import pprint 
 import json
+import time
+
+BATCH = 50
+SLEEP = 60
 
 heroes_df = pd.read_csv("heroes.csv")
 
