@@ -22,13 +22,15 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
-os.makedirs("../state", exist_ok=True)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # folder of the script
+STATE_DIR = os.path.join(BASE_DIR, "../state")
+os.makedirs(STATE_DIR, exist_ok=True)
 
-with open("../state/hero_match_dict.json", "r") as f:
+with open(os.path.join(STATE_DIR,"hero_match_dict.json"), "r") as f:
     hero_match_dict = json.load(f)
     logger.info("loaded hero_match_dict.json")
 #retrieving hero id list
-with open("../state/hero_id_list.pkl", "rb") as f:
+with open(os.path.join(STATE_DIR,"hero_id_list.pkl"), "rb") as f:
     HID = pickle.load(f)
     logger.info("loaded hero_id_list.pkl")
 
@@ -39,12 +41,12 @@ def load_hero_data_dict(HID):
     header = ["hero_damage","tower_damage","healing",
               "team_hero_damage","team_tower_damage","team_healing", "total_gold", "total_xp",
               "hdpm","tdpm","hpm","thdpm","ttdpm","thpm","gpm","xpm"]
-    if not os.path.exists("../state/hero_data.json"):
+    if not os.path.exists(os.path.join(STATE_DIR,"hero_data.json")):
         return {
             hid: {k:[] for k in header} for hid in HID
         }
     #load existing data
-    with open("../state/hero_data.json", "r") as f:
+    with open(os.path.join(STATE_DIR,"hero_data.json"), "r") as f:
         try:
             existing_data = json.load(f)
             logger.info("Loaded existing hero_data.json")
@@ -58,7 +60,7 @@ def load_hero_data_dict(HID):
 hero_data_dict = load_hero_data_dict(HID)
 logger.info("Initialized hero_data_dict")
 #retrieving match ids
-matches = pd.read_csv("../state/matches.csv")
+matches = pd.read_csv(os.path.join(STATE_DIR,"matches.csv"))
 match_ids = matches["match_id"].to_list()
 logger.info(f"retrieved {len(match_ids)} match ids from matches.csv")
 #opening opendota client
@@ -99,14 +101,14 @@ def atomic_json_dump(path, data):
 
 def save_progress(data, last_batch):
     """this function saves the progress of data collection"""
-    atomic_json_dump("../state/hero_data.json", data)
-    atomic_json_dump("../state/progress.json", {"last_batch": last_batch})
+    atomic_json_dump(os.path.join(STATE_DIR,"hero_data.json"), data)
+    atomic_json_dump(os.path.join(STATE_DIR,"progress.json"), {"last_batch": last_batch})
     logger.info(f"Progress saved. batch: {last_batch}")
 
 def load_progress():
     """this function loads the progress of data collection"""
     try:
-        with open("../state/progress.json", "r") as f:
+        with open(os.path.join(STATE_DIR,"progress.json"), "r") as f:
             progress = json.load(f)
             logger.info(f"Resuming from batch {progress.get('last_batch',-1)}")
             return progress.get("last_batch",-1)
@@ -117,6 +119,10 @@ def load_progress():
 def hero_data():
     """pipeline to collect hero data from matches and stoere it in hero_data.json"""
     last_loaded_batch = load_progress()
+    total_batches = (len(match_ids) + BATCH - 1) // BATCH
+    if last_loaded_batch >= total_batches - 1:
+        logger.info("All batches have already been processed. Exiting.")
+        exit(0)
     for batch_index, batch_start in enumerate(range(0, len(match_ids), BATCH)):
         if batch_index <= last_loaded_batch:
             print(f"Skipping batch {batch_index}...")
@@ -141,7 +147,6 @@ def hero_data():
                 team_totals[side]["hero"] += p["hero_damage"]
                 team_totals[side]["tower"] += p["tower_damage"]
                 team_totals[side]["heal"] += p["hero_healing"]
-                logger.debug(f"Updated {side} totals: {team_totals[side]}")
 
             # assign values
             for p in players:
