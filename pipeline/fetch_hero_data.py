@@ -14,16 +14,18 @@ this script retrives match data from the match ids associted with each hero in
 BATCH = 50
 SLEEP = 60
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # folder of the script
+STATE_DIR = os.path.join(BASE_DIR, "../state")
+LOG_DIR = os.path.join(BASE_DIR, "../logs")
 #logger
 logger = logging.getLogger(__name__)
-handler = logging.FileHandler('logs/log.log')
+handler = logging.FileHandler(os.path.join(LOG_DIR, "log.log"))
 formatter = logging.Formatter('%(asctime)s - %(levelname)s -%(name)s- %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # folder of the script
-STATE_DIR = os.path.join(BASE_DIR, "../state")
+#ensure state directory exists
 os.makedirs(STATE_DIR, exist_ok=True)
 
 with open(os.path.join(STATE_DIR,"hero_match_dict.json"), "r") as f:
@@ -107,13 +109,17 @@ def save_progress(data, last_batch):
 
 def load_progress():
     """this function loads the progress of data collection"""
+    path = os.path.join(STATE_DIR,"progress.json")
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        logger.info("No progress file found, starting from the beginning.")
+        return -1
     try:
-        with open(os.path.join(STATE_DIR,"progress.json"), "r") as f:
+        with open(path, "r") as f:
             progress = json.load(f)
             logger.info(f"Resuming from batch {progress.get('last_batch',-1)}")
             return progress.get("last_batch",-1)
-    except FileNotFoundError:
-        logger.info("No progress file found, starting from the beginning.")
+    except (FileNotFoundError, json.JSONDecodeError):
+        logger.info("progress.json is invalid, starting from the beginning.")
         return -1
 
 def hero_data():
