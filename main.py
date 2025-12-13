@@ -1,6 +1,6 @@
 import opendota as opendota
 import pandas as pd
-import ast
-import pprint 
-import json
-import time
+from pipeline.fetch_hero_data import hero_data
+
+if __name__ == "__main__":
+    hero_data()
